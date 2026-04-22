@@ -120,7 +120,7 @@ class AdAccessibilityService : AccessibilityService() {
         
         try {
             // 自动静音功能：检测到广告时，点击左上角喇叭图标
-            if (stateMachine.getCurrentState() in listOf(StateMachine.State.AD_SHOWN, StateMachine.State.COUNTDOWN) && !stateMachine.isMuted()) {
+            if (stateMachine.currentState in listOf(StateMachine.State.AD_SHOWN, StateMachine.State.COUNTDOWN) && !stateMachine.isMuted()) {
                 val muteNode = adDetector.detectMuteButton(rootNode)
                 if (muteNode != null) {
                     adDetector.performClick(muteNode)

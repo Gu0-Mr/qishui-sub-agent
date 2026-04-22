@@ -22,14 +22,12 @@ class StateMachine {
     }
 
     @Volatile
-    private var _currentState = State.IDLE
-    val currentState: State get() = _currentState
+    var currentState = State.IDLE
+        private set
 
     val countdownLiveData = MutableLiveData(0)
     val stateChangeLiveData = MutableLiveData<Pair<State, State>>()
 
-    private var loopCount = 0
-    private val MAX_LOOP_COUNT = 20
     private var adStartTime = 0L
     private val AD_TIMEOUT = 120000L
 
@@ -49,10 +47,10 @@ class StateMachine {
 
     @Synchronized
     fun transitionTo(newState: State) {
-        val oldState = _currentState
+        val oldState = currentState
         if (!isValidTransition(oldState, newState)) return
 
-        _currentState = newState
+        currentState = newState
         stateStartTime = System.currentTimeMillis()
 
         when (newState) {
@@ -72,9 +70,7 @@ class StateMachine {
         stateChangeLiveData.postValue(oldState to newState)
     }
 
-    private fun isValidTransition(from: State, to: State): Boolean {
-        return true
-    }
+    private fun isValidTransition(from: State, to: State): Boolean = true
 
     fun canSkip(): Boolean {
         val now = System.currentTimeMillis()
@@ -82,22 +78,20 @@ class StateMachine {
         if (consecutiveSkips > 10) {
             if (now - lastSkipTime < 500) return false
         }
-        if (_currentState == State.WAITING && now - stateStartTime > WAIT_TIMEOUT) {
+        if (currentState == State.WAITING && now - stateStartTime > WAIT_TIMEOUT) {
             transitionTo(State.IDLE)
             return false
         }
         return true
     }
 
-    fun isActive(): Boolean = _currentState != State.IDLE
-
-    fun getCurrentState(): State = _currentState
+    fun isActive(): Boolean = currentState != State.IDLE
 
     fun getStateDuration(): Long = System.currentTimeMillis() - stateStartTime
 
     @Synchronized
     fun reset() {
-        _currentState = State.IDLE
+        currentState = State.IDLE
         stateStartTime = System.currentTimeMillis()
         consecutiveSkips = 0
         resetMute()
@@ -114,8 +108,8 @@ class StateMachine {
     fun updateCountdown(seconds: Int) {
         if (seconds >= 0) {
             countdownLiveData.postValue(seconds)
-            if (_currentState == State.IDLE || _currentState == State.AD_SHOWN) {
-                _currentState = State.COUNTDOWN
+            if (currentState == State.IDLE || currentState == State.AD_SHOWN) {
+                currentState = State.COUNTDOWN
             }
             if (seconds == 0) {
                 transitionTo(State.REWARD_READY)
@@ -132,11 +126,11 @@ class StateMachine {
     }
 
     fun pause() {
-        _currentState = State.WAITING
+        currentState = State.WAITING
     }
 
     fun resume() {
-        _currentState = State.IDLE
+        currentState = State.IDLE
     }
 
     fun setMuted(muted: Boolean) {
@@ -149,16 +143,10 @@ class StateMachine {
         isMuted = false
     }
 
-    private fun resetLoopCount() {
-        loopCount = 0
-    }
-
-    fun getLoopCount(): Int = loopCount
-
-    fun isRunning(): Boolean = _currentState != State.IDLE && _currentState != State.WAITING
+    fun isRunning(): Boolean = currentState != State.IDLE && currentState != State.WAITING
 
     fun getStateDescription(): String {
-        return when (_currentState) {
+        return when (currentState) {
             State.IDLE -> "空闲"
             State.AD_SHOWN -> "广告显示中"
             State.COUNTDOWN -> "倒计时"
