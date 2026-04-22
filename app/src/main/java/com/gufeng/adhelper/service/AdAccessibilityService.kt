@@ -55,16 +55,16 @@ class AdAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         isServiceRunning = true
         
-        val info = AccessibilityServiceInfo().apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or 
+        serviceInfo.apply {
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-                        AccessibilityEvent.TYPE_TOAST_CLOSED
+                        AccessibilityEvent.TYPE_VIEW_CLICKED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
-                   AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+                   AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+                   AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             notificationTimeout = 100
         }
-        serviceInfo = info
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
