@@ -22,10 +22,13 @@ class StateMachine {
 
     companion object {
         // 最小跳过间隔（毫秒）
-        private const val MIN_SKIP_INTERVAL = 500L
+        private const val MIN_SKIP_INTERVAL = 300L
         
         // 等待超时时间（毫秒）
         private const val WAIT_TIMEOUT = 30000L
+        
+        // 最大连续跳过次数
+        private const val MAX_CONSECUTIVE_SKIPS = 10
     }
 
     @Volatile
@@ -39,6 +42,9 @@ class StateMachine {
     
     @Volatile
     private var consecutiveSkips = 0
+    
+    @Volatile
+    private var isMuted = false
     
     // 状态变更监听器
     private val stateListeners = mutableListOf<(State, State) -> Unit>()
@@ -113,10 +119,9 @@ class StateMachine {
             return false
         }
         
-        // 检查连续跳过次数（防止误触）
-        if (consecutiveSkips > 3) {
-            // 需要等待一段时间才能继续
-            if (now - lastSkipTime < 2000) {
+        // 检查连续跳过次数（放宽到10次）
+        if (consecutiveSkips > MAX_CONSECUTIVE_SKIPS) {
+            if (now - lastSkipTime < 500) {
                 return false
             }
         }
@@ -131,6 +136,18 @@ class StateMachine {
         
         return true
     }
+    
+    /**
+     * 设置静音状态
+     */
+    fun setMuted(muted: Boolean) {
+        isMuted = muted
+    }
+    
+    /**
+     * 检查是否已静音
+     */
+    fun isMuted(): Boolean = isMuted
 
     /**
      * 检查是否在目标应用内
@@ -161,6 +178,7 @@ class StateMachine {
         currentState = State.IDLE
         stateStartTime = System.currentTimeMillis()
         consecutiveSkips = 0
+        isMuted = false
     }
 
     /**

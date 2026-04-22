@@ -2,6 +2,7 @@ package com.gufeng.adhelper.detector
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityNodeInfo
+import android.graphics.Rect
 import com.gufeng.adhelper.utils.PreferencesManager
 
 /**
@@ -12,6 +13,10 @@ import com.gufeng.adhelper.utils.PreferencesManager
 class AdDetector(private val accessibilityService: AccessibilityService) {
 
     private val preferencesManager = PreferencesManager(accessibilityService)
+    
+    // 屏幕尺寸
+    private val screenWidth = accessibilityService.resources.displayMetrics.widthPixels
+    private val screenHeight = accessibilityService.resources.displayMetrics.heightPixels
     
     /**
      * 广告优先级枚举
@@ -34,17 +39,17 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
         val description: String = ""
     )
 
-    // 广告关键词列表
+    // 广告关键词列表 - 扩充版本
     private val popupKeywords = listOf(
-        "广告", "观看激励视频", "解锁完整内容", "看广告免费听"
+        "广告", "观看激励视频", "解锁完整内容", "看广告免费听", "领取奖励", "继续观看"
     )
     
     private val collectSuccessKeywords = listOf(
-        "领取成功", "已领取", "领取成功可关闭", "恭喜获得", "已获得"
+        "领取成功", "已领取", "领取成功可关闭", "恭喜获得", "已获得", "领取成功X", "领取成功×"
     )
     
     private val collectButtonKeywords = listOf(
-        "领取奖励", "继续观看", "再领一次", "领取", "可领取", "立即领取"
+        "领取奖励", "继续观看", "再领一次", "领取", "可领取", "立即领取", "点击领取"
     )
     
     private val countdownKeywords = listOf(
@@ -52,7 +57,12 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
     )
     
     private val closeButtonKeywords = listOf(
-        "关闭", "skip", "SKIP", "跳过", "×", "✕", "✖", "×"
+        "关闭", "skip", "SKIP", "跳过", "×", "✕", "✖", "X", "x", "close", "关闭广告"
+    )
+    
+    // 静音关键词
+    private val muteKeywords = listOf(
+        "广告", "声音", "喇叭", "音量", "mute", "volume", "speaker"
     )
 
     /**
@@ -300,5 +310,46 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
             "AdActivity", "RewardActivity", "VideoActivity", "Interstitial"
         )
         return adActivityKeywords.any { className.contains(it, ignoreCase = true) }
+    }
+    
+    /**
+     * 检测右上角区域（扩大范围）
+     */
+    private fun isInTopRightArea(bounds: Rect): Boolean {
+        val rightStart = (screenWidth * 0.6f).toInt()
+        val topEnd = (screenHeight * 0.4f).toInt()
+        return bounds.left >= rightStart && bounds.top <= topEnd
+    }
+    
+    /**
+     * 检测左上角区域（用于静音按钮）
+     */
+    private fun isInTopLeftArea(bounds: Rect): Boolean {
+        val leftEnd = (screenWidth * 0.3f).toInt()
+        val topEnd = (screenHeight * 0.3f).toInt()
+        return bounds.left <= leftEnd && bounds.top <= topEnd
+    }
+    
+    /**
+     * 检测静音按钮（左上角喇叭图标）
+     */
+    fun detectMuteButton(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val clickableNodes = mutableListOf<AccessibilityNodeInfo>()
+        findClickableNodes(rootNode, clickableNodes)
+        
+        for (node in clickableNodes) {
+            val text = node.text?.toString()?.lowercase() ?: ""
+            val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            
+            // 只检测左上角区域
+            if (isInTopLeftArea(bounds)) {
+                if (muteKeywords.any { text.contains(it) || contentDesc.contains(it) }) {
+                    return node
+                }
+            }
+        }
+        return null
     }
 }

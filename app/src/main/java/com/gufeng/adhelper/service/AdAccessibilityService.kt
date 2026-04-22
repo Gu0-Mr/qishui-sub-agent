@@ -58,7 +58,9 @@ class AdAccessibilityService : AccessibilityService() {
         serviceInfo.apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-                        AccessibilityEvent.TYPE_VIEW_CLICKED
+                        AccessibilityEvent.TYPE_VIEW_CLICKED or
+                        AccessibilityEvent.TYPE_WINDOWS_CHANGED or
+                        AccessibilityEvent.TYPE_VIEW_SCROLLED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                    AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
@@ -92,6 +94,12 @@ class AdAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
                 handleContentChanged(event)
             }
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> {
+                handleContentChanged(event)
+            }
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                handleContentChanged(event)
+            }
         }
     }
 
@@ -111,6 +119,15 @@ class AdAccessibilityService : AccessibilityService() {
         val rootNode = rootInActiveWindow ?: return
         
         try {
+            // 自动静音功能：检测到广告时，点击左上角喇叭图标
+            if (stateMachine.getCurrentState() in listOf(StateMachine.State.AD_SHOWN, StateMachine.State.COUNTDOWN) && !stateMachine.isMuted()) {
+                val muteNode = adDetector.detectMuteButton(rootNode)
+                if (muteNode != null) {
+                    adDetector.performClick(muteNode)
+                    stateMachine.setMuted(true)
+                }
+            }
+            
             // 按照优先级检测广告元素
             val adInfo = adDetector.detectAd(rootNode)
             
