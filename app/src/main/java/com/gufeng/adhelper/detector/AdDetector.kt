@@ -1,6 +1,7 @@
 package com.gufeng.adhelper.detector
 
 import android.accessibilityservice.AccessibilityService
+import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import android.graphics.Rect
 import com.gufeng.adhelper.utils.PreferencesManager
@@ -12,22 +13,30 @@ import com.gufeng.adhelper.utils.PreferencesManager
  */
 class AdDetector(private val accessibilityService: AccessibilityService) {
 
+    companion object {
+        private const val TAG = "AdHelper-Detector"
+    }
+
     private val preferencesManager = PreferencesManager(accessibilityService)
     
     // 屏幕尺寸
-    private val screenWidth = accessibilityService.resources.displayMetrics.widthPixels
-    private val screenHeight = accessibilityService.resources.displayMetrics.heightPixels
+    val screenWidth = accessibilityService.resources.displayMetrics.widthPixels
+    val screenHeight = accessibilityService.resources.displayMetrics.heightPixels
+    
+    // 当前检测到的秒数
+    var countdownSeconds = 0
+        private set
     
     /**
      * 广告优先级枚举
-     * 弹窗 > 领取成功关闭 > 领取按钮 > 倒计时
+     * 倒计时 > 弹窗 > 领取成功关闭 > 领取按钮
      */
     enum class AdPriority {
         NONE,
         COUNTDOWN,
-        COLLECT_BUTTON,
+        POPUP,
         COLLECT_SUCCESS_CLOSE,
-        POPUP
+        COLLECT_BUTTON
     }
     
     /**
@@ -39,72 +48,137 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
         val description: String = ""
     )
 
-    // 广告关键词列表 - 扩充版本
+    // 广告关键词列表 - 汽水音乐专用
     private val popupKeywords = listOf(
         "广告", "观看激励视频", "解锁完整内容", "看广告免费听", "领取奖励", "继续观看"
     )
     
     private val collectSuccessKeywords = listOf(
-        "领取成功", "已领取", "领取成功可关闭", "恭喜获得", "已获得", "领取成功X", "领取成功×"
+        "领取成功", "已领取", "恭喜获得", "已获得", "领取成功X", "领取成功×", "可关闭"
     )
     
     private val collectButtonKeywords = listOf(
-        "领取奖励", "继续观看", "再领一次", "领取", "可领取", "立即领取", "点击领取"
+        "领取奖励", "继续观看", "再领一次", "可领取", "立即领取", "点击领取"
     )
     
+    // 倒计时关键词 - 完整覆盖
     private val countdownKeywords = listOf(
-        "秒后可领取", "秒后领取", "等待", "倒计时", "跳过广告", "关闭广告"
+        "秒后可领取奖励", "秒后可领取", "秒后领取奖励", "秒后可关闭",
+        "秒后关闭", "秒后领取", "等待", "倒计时", "跳过广告"
     )
     
     private val closeButtonKeywords = listOf(
-        "关闭", "skip", "SKIP", "跳过", "×", "✕", "✖", "X", "x", "close", "关闭广告"
+        "关闭", "skip", "SKIP", "跳过", "×", "✕", "✖", "X", "x", "close"
     )
     
-    // 静音关键词
+    // 静音关键词 - 扩大范围
     private val muteKeywords = listOf(
-        "广告", "声音", "喇叭", "音量", "mute", "volume", "speaker"
+        "广告", "声音", "喇叭", "音量", "静音", "mute", "volume", "speaker", "audio"
     )
 
     /**
-     * 检测广告
+     * 检测广告 - 主入口
      */
     fun detectAd(rootNode: AccessibilityNodeInfo): AdInfo {
         if (!preferencesManager.isServiceEnabled) {
             return AdInfo(AdPriority.NONE, null)
         }
         
-        // 1. 优先检测弹窗
+        // 0. 优先检测倒计时（触发静音）
+        val countdownNode = findCountdownNode(rootNode)
+        if (countdownNode != null) {
+            return AdInfo(AdPriority.COUNTDOWN, countdownNode, "检测到倒计时")
+        }
+        
+        // 1. 检测弹窗
         val popupNode = findPopupNode(rootNode)
         if (popupNode != null) {
+            Log.d(TAG, "检测到弹窗广告")
             return AdInfo(AdPriority.POPUP, popupNode, "检测到弹窗广告")
         }
         
         // 2. 检测领取成功关闭按钮
         val collectSuccessNode = findCollectSuccessNode(rootNode)
         if (collectSuccessNode != null) {
+            Log.d(TAG, "检测到领取成功关闭")
             return AdInfo(AdPriority.COLLECT_SUCCESS_CLOSE, collectSuccessNode, "检测到领取成功关闭")
         }
         
         // 3. 检测领取按钮
         val collectButtonNode = findCollectButtonNode(rootNode)
         if (collectButtonNode != null) {
+            Log.d(TAG, "检测到领取按钮")
             return AdInfo(AdPriority.COLLECT_BUTTON, collectButtonNode, "检测到领取按钮")
-        }
-        
-        // 4. 检测倒计时跳过按钮
-        val countdownNode = findCountdownSkipNode(rootNode)
-        if (countdownNode != null) {
-            return AdInfo(AdPriority.COUNTDOWN, countdownNode, "检测到倒计时跳过")
         }
         
         return AdInfo(AdPriority.NONE, null)
     }
 
     /**
+     * 查找倒计时节点 - 专门用于触发静音
+     */
+    private fun findCountdownNode(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val clickableNodes = mutableListOf<AccessibilityNodeInfo>()
+        findClickableNodes(rootNode, clickableNodes)
+        
+        for (node in clickableNodes) {
+            val text = node.text?.toString() ?: ""
+            val contentDesc = node.contentDescription?.toString() ?: ""
+            val fullText = "$text $contentDesc"
+            
+            // 提取秒数
+            val seconds = extractSeconds(fullText)
+            if (seconds > 0) {
+                countdownSeconds = seconds
+                Log.d(TAG, "【倒计时检测】${seconds}秒 - 文字: $fullText")
+                return node
+            }
+            
+            // 检查关键词
+            for (keyword in countdownKeywords) {
+                if (fullText.contains(keyword)) {
+                    countdownSeconds = extractSeconds(fullText)
+                    Log.d(TAG, "【倒计时检测】${countdownSeconds}秒 - 匹配关键词: $keyword")
+                    return node
+                }
+            }
+        }
+        
+        // 检查所有文本节点（包括不可点击的）
+        val allNodes = mutableListOf<AccessibilityNodeInfo>()
+        findAllNodes(rootNode, allNodes)
+        
+        for (node in allNodes) {
+            val text = node.text?.toString() ?: ""
+            val contentDesc = node.contentDescription?.toString() ?: ""
+            val fullText = "$text $contentDesc"
+            
+            for (keyword in countdownKeywords) {
+                if (fullText.contains(keyword)) {
+                    val seconds = extractSeconds(fullText)
+                    countdownSeconds = if (seconds > 0) seconds else 30
+                    Log.d(TAG, "【倒计时文本检测】${countdownSeconds}秒 - $fullText")
+                    return node
+                }
+            }
+        }
+        
+        return null
+    }
+
+    /**
+     * 提取秒数
+     */
+    private fun extractSeconds(text: String): Int {
+        val pattern = Regex("(\\d+)\\s*秒")
+        val match = pattern.find(text)
+        return match?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+    }
+
+    /**
      * 查找弹窗关闭按钮
      */
     private fun findPopupNode(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        // 查找所有可点击的节点
         val clickableNodes = mutableListOf<AccessibilityNodeInfo>()
         findClickableNodes(rootNode, clickableNodes)
         
@@ -112,27 +186,21 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
             val text = node.text?.toString()?.lowercase() ?: ""
             val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
             
-            // 检查是否是弹窗广告的关闭按钮
+            // 检查弹窗关键词
             for (keyword in popupKeywords) {
                 if (text.contains(keyword) || contentDesc.contains(keyword)) {
                     return node
                 }
             }
             
-            // 检查关闭图标（X符号等）
+            // 检查关闭图标
             for (keyword in closeButtonKeywords) {
                 if (text.contains(keyword) || contentDesc.contains(keyword)) {
-                    // 确保不是在主要内容区域
-                    val parent = node.parent
-                    if (parent != null) {
-                        val parentClass = parent.className?.toString() ?: ""
-                        // 如果父级是弹窗类型
-                        if (parentClass.contains("Dialog") || 
-                            parentClass.contains("Popup") ||
-                            parentClass.contains("Window")) {
-                            return node
-                        }
-                        parent.recycle()
+                    val bounds = Rect()
+                    node.getBoundsInScreen(bounds)
+                    // 只检测右上角区域
+                    if (bounds.left >= screenWidth * 0.7f && bounds.top <= screenHeight * 0.3f) {
+                        return node
                     }
                 }
             }
@@ -152,31 +220,18 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
             val text = node.text?.toString() ?: ""
             val contentDesc = node.contentDescription?.toString() ?: ""
             
-            // 检查领取成功相关关键词
             for (keyword in collectSuccessKeywords) {
                 if (text.contains(keyword) || contentDesc.contains(keyword)) {
+                    Log.d(TAG, "【领取成功】找到: $text")
                     return node
                 }
             }
             
-            // 检查"知道了"、"好的"等确认按钮
-            val confirmKeywords = listOf("知道了", "好的", "确定", "我知道了")
+            // 检查"知道了"等确认按钮
+            val confirmKeywords = listOf("知道了", "好的", "确定")
             for (keyword in confirmKeywords) {
                 if (text.contains(keyword)) {
-                    // 检查周围是否有成功相关的元素
-                    val parent = node.parent
-                    if (parent != null) {
-                        val parentText = parent.text?.toString() ?: ""
-                        val parentDesc = parent.contentDescription?.toString() ?: ""
-                        for (successKeyword in collectSuccessKeywords) {
-                            if (parentText.contains(successKeyword) || 
-                                parentDesc.contains(successKeyword)) {
-                                parent.recycle()
-                                return node
-                            }
-                        }
-                        parent.recycle()
-                    }
+                    return node
                 }
             }
         }
@@ -191,69 +246,15 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
         val clickableNodes = mutableListOf<AccessibilityNodeInfo>()
         findClickableNodes(rootNode, clickableNodes)
         
-        // 按优先级排序
-        val prioritizedNodes = mutableListOf<Pair<AccessibilityNodeInfo, Int>>()
-        
         for (node in clickableNodes) {
             val text = node.text?.toString() ?: ""
             val contentDesc = node.contentDescription?.toString() ?: ""
             
-            var priority = 0
-            
-            // 高优先级：可领取奖励
             for (keyword in collectButtonKeywords) {
                 if (text.contains(keyword) || contentDesc.contains(keyword)) {
-                    priority = when {
-                        keyword in listOf("可领取", "立即领取") -> 3
-                        keyword == "领取奖励" -> 2
-                        else -> 1
-                    }
-                    break
+                    Log.d(TAG, "【领取按钮】找到: $text")
+                    return node
                 }
-            }
-            
-            // 检查秒后可领取（需要等待）
-            for (keyword in countdownKeywords) {
-                if (text.contains(keyword)) {
-                    priority = 0
-                    break
-                }
-            }
-            
-            if (priority > 0) {
-                prioritizedNodes.add(node to priority)
-            }
-        }
-        
-        // 返回优先级最高的节点
-        return prioritizedNodes.maxByOrNull { it.second }?.first
-    }
-
-    /**
-     * 查找倒计时跳过按钮
-     */
-    private fun findCountdownSkipNode(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        val clickableNodes = mutableListOf<AccessibilityNodeInfo>()
-        findClickableNodes(rootNode, clickableNodes)
-        
-        for (node in clickableNodes) {
-            val text = node.text?.toString() ?: ""
-            val contentDesc = node.contentDescription?.toString() ?: ""
-            
-            // 检查倒计时跳过相关
-            for (keyword in countdownKeywords) {
-                if (text.contains(keyword) || contentDesc.contains(keyword)) {
-                    // 检查是否可点击
-                    if (node.isClickable) {
-                        return node
-                    }
-                }
-            }
-            
-            // 检查数字+秒的格式（如"5秒"）
-            val numberPattern = Regex("^\\d+\\s*秒")
-            if (numberPattern.containsMatchIn(text)) {
-                return node
             }
         }
         
@@ -279,19 +280,75 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
     }
 
     /**
-     * 执行点击
+     * 递归获取所有节点
      */
-    fun performClick(node: AccessibilityNodeInfo): Boolean {
-        if (node.isClickable) {
-            return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    private fun findAllNodes(
+        node: AccessibilityNodeInfo,
+        result: MutableList<AccessibilityNodeInfo>
+    ) {
+        result.add(node)
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                findAllNodes(child, result)
+            }
+        }
+    }
+
+    /**
+     * 检测并点击静音喇叭（左上角）
+     */
+    fun detectAndClickMute(rootNode: AccessibilityNodeInfo): Boolean {
+        val allNodes = mutableListOf<AccessibilityNodeInfo>()
+        findAllNodes(rootNode, allNodes)
+        
+        // 左上角区域：左侧30%，上方30%
+        val leftEnd = (screenWidth * 0.3f).toInt()
+        val topEnd = (screenHeight * 0.3f).toInt()
+        
+        for (node in allNodes) {
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            
+            // 检查是否在左上角区域
+            if (bounds.left <= leftEnd && bounds.top <= topEnd) {
+                val text = node.text?.toString()?.lowercase() ?: ""
+                val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+                val className = node.className?.toString()?.lowercase() ?: ""
+                
+                // 检查是否包含静音相关关键词
+                if (muteKeywords.any { text.contains(it) || contentDesc.contains(it) || className.contains(it) }) {
+                    Log.d(TAG, "【静音检测】找到喇叭: text=$text, desc=$contentDesc, bounds=$bounds")
+                    if (performClick(node)) {
+                        Log.d(TAG, "【静音成功】广告声音已关闭")
+                        return true
+                    }
+                }
+            }
         }
         
-        // 如果当前节点不可点击，尝试父节点
+        Log.d(TAG, "【静音检测】未找到喇叭图标")
+        return false
+    }
+
+    /**
+     * 执行点击
+     */
+    fun performClick(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        
+        if (node.isClickable) {
+            val result = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            Log.d(TAG, "【点击结果】${if (result) "成功" else "失败"}")
+            return result
+        }
+        
+        // 尝试父节点
         var parent = node.parent
         while (parent != null) {
             if (parent.isClickable) {
                 val result = parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 parent.recycle()
+                Log.d(TAG, "【点击父节点结果】${if (result) "成功" else "失败"}")
                 return result
             }
             val temp = parent
@@ -307,49 +364,8 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
      */
     fun isAdActivity(className: String): Boolean {
         val adActivityKeywords = listOf(
-            "AdActivity", "RewardActivity", "VideoActivity", "Interstitial"
+            "AdActivity", "RewardActivity", "VideoActivity", "Interstitial", "ad"
         )
         return adActivityKeywords.any { className.contains(it, ignoreCase = true) }
-    }
-    
-    /**
-     * 检测右上角区域（扩大范围）
-     */
-    private fun isInTopRightArea(bounds: Rect): Boolean {
-        val rightStart = (screenWidth * 0.6f).toInt()
-        val topEnd = (screenHeight * 0.4f).toInt()
-        return bounds.left >= rightStart && bounds.top <= topEnd
-    }
-    
-    /**
-     * 检测左上角区域（用于静音按钮）
-     */
-    private fun isInTopLeftArea(bounds: Rect): Boolean {
-        val leftEnd = (screenWidth * 0.3f).toInt()
-        val topEnd = (screenHeight * 0.3f).toInt()
-        return bounds.left <= leftEnd && bounds.top <= topEnd
-    }
-    
-    /**
-     * 检测静音按钮（左上角喇叭图标）
-     */
-    fun detectMuteButton(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        val clickableNodes = mutableListOf<AccessibilityNodeInfo>()
-        findClickableNodes(rootNode, clickableNodes)
-        
-        for (node in clickableNodes) {
-            val text = node.text?.toString()?.lowercase() ?: ""
-            val contentDesc = node.contentDescription?.toString()?.lowercase() ?: ""
-            val bounds = Rect()
-            node.getBoundsInScreen(bounds)
-            
-            // 只检测左上角区域
-            if (isInTopLeftArea(bounds)) {
-                if (muteKeywords.any { text.contains(it) || contentDesc.contains(it) }) {
-                    return node
-                }
-            }
-        }
-        return null
     }
 }

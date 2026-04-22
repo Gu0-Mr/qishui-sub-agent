@@ -119,26 +119,29 @@ class AdAccessibilityService : AccessibilityService() {
         val rootNode = rootInActiveWindow ?: return
         
         try {
-            // 自动静音功能：检测到广告时，点击左上角喇叭图标
-            if (stateMachine.currentState in listOf(StateMachine.State.AD_SHOWN, StateMachine.State.COUNTDOWN) && !stateMachine.isMuted()) {
-                val muteNode = adDetector.detectMuteButton(rootNode)
-                if (muteNode != null) {
-                    adDetector.performClick(muteNode)
-                    stateMachine.setMuted(true)
-                }
-            }
-            
             // 按照优先级检测广告元素
             val adInfo = adDetector.detectAd(rootNode)
             
             when (adInfo.priority) {
+                AdDetector.AdPriority.COUNTDOWN -> {
+                    // 检测到倒计时，立即尝试静音
+                    if (!stateMachine.isMuted()) {
+                        val muted = adDetector.detectAndClickMute(rootNode)
+                        if (muted) {
+                            stateMachine.setMuted(true)
+                        }
+                    }
+                    // 更新状态机
+                    stateMachine.transitionTo(StateMachine.State.COUNTDOWN)
+                }
                 AdDetector.AdPriority.POPUP -> {
-                    // 最高优先级：弹窗
+                    // 弹窗
                     stateMachine.transitionTo(StateMachine.State.POPUP_DETECTED)
                     adInfo.clickNode?.let { node ->
-                        adDetector.performClick(node)
-                        incrementSkipCount()
-                        preferencesManager.incrementTodaySkipCount()
+                        if (adDetector.performClick(node)) {
+                            incrementSkipCount()
+                            preferencesManager.incrementTodaySkipCount()
+                        }
                         stateMachine.transitionTo(StateMachine.State.IDLE)
                     }
                 }
@@ -146,9 +149,10 @@ class AdAccessibilityService : AccessibilityService() {
                     // 领取成功关闭
                     stateMachine.transitionTo(StateMachine.State.COLLECT_SUCCESS)
                     adInfo.clickNode?.let { node ->
-                        adDetector.performClick(node)
-                        incrementSkipCount()
-                        preferencesManager.incrementTodaySkipCount()
+                        if (adDetector.performClick(node)) {
+                            incrementSkipCount()
+                            preferencesManager.incrementTodaySkipCount()
+                        }
                         stateMachine.transitionTo(StateMachine.State.IDLE)
                     }
                 }
@@ -157,18 +161,6 @@ class AdAccessibilityService : AccessibilityService() {
                     stateMachine.transitionTo(StateMachine.State.COLLECT_BUTTON)
                     adInfo.clickNode?.let { node ->
                         adDetector.performClick(node)
-                    }
-                }
-                AdDetector.AdPriority.COUNTDOWN -> {
-                    // 倒计时跳过
-                    if (stateMachine.canSkip()) {
-                        stateMachine.transitionTo(StateMachine.State.SKIPPING)
-                        adInfo.clickNode?.let { node ->
-                            adDetector.performClick(node)
-                            incrementSkipCount()
-                            preferencesManager.incrementTodaySkipCount()
-                            stateMachine.transitionTo(StateMachine.State.IDLE)
-                        }
                     }
                 }
                 AdDetector.AdPriority.NONE -> {
