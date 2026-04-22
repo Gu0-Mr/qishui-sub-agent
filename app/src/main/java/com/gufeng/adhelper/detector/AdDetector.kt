@@ -84,6 +84,11 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
             return AdInfo(AdPriority.NONE, null)
         }
         
+        Log.d(TAG, "开始检测，屏幕尺寸: ${screenWidth}x${screenHeight}")
+        
+        // 调试：打印所有节点（限制深度防止日志爆炸）
+        printAllNodes(rootNode, 0, 3)
+        
         // 0. 优先检测倒计时（触发静音）
         val countdownNode = findCountdownNode(rootNode)
         if (countdownNode != null) {
@@ -367,5 +372,31 @@ class AdDetector(private val accessibilityService: AccessibilityService) {
             "AdActivity", "RewardActivity", "VideoActivity", "Interstitial", "ad"
         )
         return adActivityKeywords.any { className.contains(it, ignoreCase = true) }
+    }
+    
+    /**
+     * 打印所有节点（用于调试）
+     */
+    private fun printAllNodes(node: AccessibilityNodeInfo, depth: Int, maxDepth: Int) {
+        if (depth > maxDepth) return
+        
+        val indent = "  ".repeat(depth)
+        val text = node.text?.toString() ?: ""
+        val contentDesc = node.contentDescription?.toString() ?: ""
+        val className = node.className?.toString() ?: ""
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        
+        // 只打印有内容的节点
+        if (text.isNotEmpty() || contentDesc.isNotEmpty()) {
+            Log.d(TAG, "${indent}[$className] text='$text' desc='$contentDesc' bounds=$bounds clickable=${node.isClickable}")
+        }
+        
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                printAllNodes(child, depth + 1, maxDepth)
+                child.recycle()
+            }
+        }
     }
 }
