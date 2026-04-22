@@ -89,8 +89,8 @@ class AdAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 handleContentChanged(event)
             }
-            AccessibilityEvent.TYPE_TOAST_CLOSED -> {
-                handleToastClosed(event)
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> {
+                handleContentChanged(event)
             }
         }
     }
@@ -162,10 +162,6 @@ class AdAccessibilityService : AccessibilityService() {
         } finally {
             rootNode.recycle()
         }
-    }
-
-    private fun handleToastClosed(event: AccessibilityEvent) {
-        // 处理toast关闭事件
     }
 
     private fun findAndClickAdNodes(rootNode: AccessibilityNodeInfo?) {

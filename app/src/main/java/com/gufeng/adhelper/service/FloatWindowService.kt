@@ -39,6 +39,15 @@ class FloatWindowService : Service() {
         fun show(context: Context) {
             if (isShowing) return
             
+            // Android 14+ 悬浮窗权限检查
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:${context.packageName}"))
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(intent)
+                return
+            }
+            
             val intent = Intent(context, FloatWindowService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)

@@ -80,6 +80,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 每次进入页面都刷新权限状态
+        checkAccessibilityService()
+        checkOverlayPermission()
+        checkBatteryOptimization()
+        updateServiceStatus()
+        updateStatistics()
         handler.post(updateRunnable)
     }
 

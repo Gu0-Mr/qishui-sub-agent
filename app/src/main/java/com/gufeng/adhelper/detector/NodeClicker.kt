@@ -1,6 +1,9 @@
 package com.gufeng.adhelper.detector
 
 import android.accessibilityservice.AccessibilityService
+import android.gesture.GestureDescription
+import android.graphics.Path
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityNodeInfo

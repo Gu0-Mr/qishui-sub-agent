@@ -33,6 +33,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AdHelper"
+        android:enableOnBackInvokedCallback="false"
         tools:targetApi="36">
 
         <!-- 主界面 -->
