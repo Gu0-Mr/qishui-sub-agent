@@ -1,0 +1,48 @@
+# 项目文件
+.gradle/
+build/
+local.properties
+
+# 输出目录
+app/build/
+app/release/
+app/debug/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Gradle
+*.lock
+package-lock.json
+
+# 日志
+*.log
+
+# 测试报告
+test-report/
+html-report/
+
+# 本地配置
+local.properties
+
+# APK
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# 备份
+*.bak
+*~
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

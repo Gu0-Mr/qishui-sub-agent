@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">汽水音乐广告助手</string>
+    <string name="author">古封</string>
+    
+    <!-- 无障碍服务描述 -->
+    <string name="accessibility_service_description">
+        汽水音乐广告助手需要此权限来检测并自动跳过汽水音乐中的广告。
+        \n\n功能说明：
+        • 自动检测广告弹窗
+        • 一键领取奖励
+        • 自动跳过广告倒计时
+        • 保护您的听歌体验
+        \n\n隐私说明：
+        • 仅读取屏幕内容用于广告检测
+        • 不会收集或上传任何个人信息
+        • 不会干扰其他应用的正常使用
+    </string>
+    
+    <!-- 状态 -->
+    <string name="status_running">运行中</string>
+    <string name="status_enabled">已开启</string>
+    <string name="status_disabled">未开启</string>
+    <string name="status_overall_ready">全部就绪</string>
+    <string name="status_overall_partial">部分未开启</string>
+    
+    <!-- 统计 -->
+    <string name="skip_count">本次跳过</string>
+    <string name="today_skip_count">今日跳过</string>
+    <string name="total_skip_count">累计跳过</string>
+    
+    <!-- 服务 -->
+    <string name="accessibility_service">无障碍服务</string>
+    <string name="accessibility_service_desc">核心功能，必须开启</string>
+    <string name="keep_alive_service">后台保活</string>
+    <string name="keep_alive_desc">防止服务被系统杀死</string>
+    <string name="float_window">悬浮窗</string>
+    <string name="float_window_desc">显示跳过统计（可选）</string>
+    
+    <!-- 权限 -->
+    <string name="overlay_permission">悬浮窗权限</string>
+    <string name="overlay_granted">已授权</string>
+    <string name="overlay_not_granted">未授权</string>
+    <string name="battery_optimization">电池优化</string>
+    <string name="battery_optimized">已关闭</string>
+    <string name="battery_not_optimized">未关闭</string>
+    <string name="manufacturer_settings">厂商设置</string>
+    <string name="target_app">目标应用</string>
+    <string name="qishui_music">汽水音乐</string>
+    
+    <!-- 按钮 -->
+    <string name="btn_go_settings">去设置</string>
+    <string name="btn_already_set">已设置</string>
+    <string name="btn_reset_stats">重置统计数据</string>
+    <string name="btn_confirm">确定</string>
+    <string name="btn_cancel">取消</string>
+    
+    <!-- 提示 -->
+    <string name="guide_enable_accessibility">• 请先开启无障碍服务</string>
+    <string name="guide_enable_keepalive">• 建议开启后台保活</string>
+    <string name="guide_enable_overlay">• 请授权悬浮窗权限</string>
+    <string name="guide_disable_battery">• 建议关闭电池优化</string>
+    <string name="guide_all_ready">✓ 所有权限已就绪，广告助手运行中</string>
+    
+    <!-- Toast -->
+    <string name="toast_accessibility_hint">请找到「汽水音乐广告助手」并开启</string>
+    <string name="toast_cannot_open_settings">无法打开设置</string>
+    <string name="toast_battery_already_best">已经是最佳电池设置</string>
+    <string name="toast_stats_reset">统计已重置</string>
+    
+    <!-- 对话框 -->
+    <string name="dialog_reset_title">重置统计</string>
+    <string name="dialog_reset_message">确定要重置所有统计数据吗？</string>
+    <string name="dialog_manufacturer_guide_title">%1$s设置指引</string>
+    
+    <!-- 通知 -->
+    <string name="notification_keepalive_title">汽水音乐广告助手</string>
+    <string name="notification_keepalive_text_running">已跳过 %1$d 次广告 • 服务运行中</string>
+    <string name="notification_keepalive_text_enabled">已跳过 %1$d 次广告 • 服务已开启</string>
+    <string name="notification_keepalive_text_disabled">请点击开启无障碍服务</string>
+    <string name="notification_float_title">悬浮窗服务运行中</string>
+    <string name="notification_float_text">点击打开应用</string>
+    
+    <!-- 版本 -->
+    <string name="version_format">v%1$s</string>
+</resources>
